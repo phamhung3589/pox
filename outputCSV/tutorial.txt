@@ -1,0 +1,3 @@
+tcp_normalized.csv: collect from tcp_bo_cong_an, normal data, statistic with ip and entropy ip src, need to preprocessing
+
+tcp_data: data after preprocessing from tcp_normalized.csv
