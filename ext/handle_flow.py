@@ -26,13 +26,15 @@ parameters = Backprop.neural
 mod = mode.mod
 # handler for timer function that sends the requests to all the
 # switches connected to the controller.
+
+
 def _timer_func ():
-  for connection in core.openflow._connections.values():
-    connection.send(of.ofp_stats_request(body=of.ofp_flow_stats_request()))
-  log.debug("Sent %i flow/port stats request(s)", len(core.openflow._connections))
+    for connection in core.openflow._connections.values():
+        connection.send(of.ofp_stats_request(body=of.ofp_flow_stats_request()))
+    log.debug("Sent %i flow/port stats request(s)", len(core.openflow._connections))
 
 
-def calculate_Entropy(df):
+def calculate_entropy(df):
     # print("count=",count)
     prob = df/df.sum(axis=0)
     entropy = (-prob*np.log2(prob)).sum()
@@ -42,38 +44,40 @@ def calculate_Entropy(df):
 # Using this function to detect UDP attack
 def normalize(vector):
     for i in vector.index:
-      vector[i] = (vector[i] - min_feature[i])/(max_feature[i] - min_feature[i])
+        vector[i] = (vector[i] - min_feature[i]) / (max_feature[i] - min_feature[i])
+
 
 # Using this dunction to detect ICMP attack
 def normalize_icmp(vector):
     for i in vector.index:
-        vector[i] = (vector[i] - min_feature_icmp[i])/ (max_feature_icmp[i] - min_feature_icmp[i])
+        vector[i] = (vector[i] - min_feature_icmp[i]) / (max_feature_icmp[i] - min_feature_icmp[i])
+
 
 # Normalize feature in anomaly detection - Using algorithm: Local outlier factor
 def normalize_minmax(vector):
     for i in vector.index:
-        vector[i] = (vector[i] - std[i])/ (mean[i] - std[i])
+        vector[i] = (vector[i] - std[i]) / (mean[i] - std[i])
+
 
 # handler to display flow statistics received in JSON format
 # structure of event.stats is defined by ofp_flow_stats()
 def _handle_flowstats_received (event):
-  stats = flow_stats_to_list(event.stats)
-  log.debug("FlowStatsReceived from %s: %s", 
+    stats = flow_stats_to_list(event.stats)
+    log.debug("FlowStatsReceived from %s: %s",
     dpidToStr(event.connection.dpid), stats)
-  global cnt, df1, df2, arr1, arr2, change_mode, tcp_activation
+    global cnt, df1, df2, arr1, arr2, change_mode, tcp_activation
 
-  if event.connection.dpid:
-    if change_mode==mod.MODE_NORMAL or \
-       change_mode==mod.MODE_CLASSIFIER or \
-       change_mode==mod.MODE_DETECT_ICMP or \
-       change_mode==mod.MODE_DETECT_UDP:
+    if event.connection.dpid:
+        if change_mode == mod.MODE_NORMAL or \
+           change_mode == mod.MODE_CLASSIFIER or \
+           change_mode == mod.MODE_DETECT_ICMP or \
+           change_mode == mod.MODE_DETECT_UDP:
 
-        status(event)
+            status(event)
 
-    elif change_mode==mod.MODE_DETECT_TCPSYN:
-        print "detect TCP SYN attack using KNN"
-        tcp_activation = 1
-
+        elif change_mode == mod.MODE_DETECT_TCPSYN:
+            print "detect TCP SYN attack using KNN"
+            tcp_activation = 1
 
 
 def status(event):
@@ -91,10 +95,10 @@ def status(event):
                           str(f.match.tp_dst),
                           f.match.nw_proto])
 
-    lenFlow = len(flowtable)
+    len_flow = len(flowtable)
     n2 = t.time()  ###########################n2-n1 = getflow#####################
     print "n2-n1=", n2 - n1
-    if (lenFlow != 0) and (cnt < 1):
+    if (len_flow != 0) and (cnt < 1):
         print'cnt=', cnt
         cnt = cnt + 1
         arr1 = np.array(flowtable)
@@ -107,7 +111,7 @@ def status(event):
 
         df1['total_pkt'] = df1['total_pkt'].astype(np.float)
 
-    elif (lenFlow != 0) and (cnt >= 1):
+    elif (len_flow != 0) and (cnt >= 1):
         n3 = t.time()  ######################################################### n3 ########
         print('cnt=', cnt)
         cnt = cnt + 1
@@ -149,7 +153,7 @@ def status(event):
         df2.reset_index(['ip_src', 'ip_dst', 'port_src', 'port_dst', 'proto'], inplace=True)
 
         print "NUMBER OF NEW FLOWS = ", len(new_flows)
-        ent_ip_src = calculate_Entropy(new_flows.groupby(['ip_src'])['total_pkt'].sum())
+        ent_ip_src = calculate_entropy(new_flows.groupby(['ip_src'])['total_pkt'].sum())
         total_packets = new_flows['total_pkt'].sum()
         # print "Hung", new_flows
 
@@ -165,7 +169,7 @@ def status(event):
                 print "Network is safe"
 
         # mode classifier
-        if change_mode==mod.MODE_CLASSIFIER:
+        if change_mode == mod.MODE_CLASSIFIER:
             print "Dangerous!!!!\nDangerous!!!!\nChange controller to mode classification"
             new_flows['proto'] = new_flows['proto'].astype(np.float)
             classifier = new_flows.groupby('proto')['total_pkt'].sum()
@@ -186,13 +190,12 @@ def status(event):
                 change_mode = mod.MODE_NORMAL
                 print "Not detect attack - change controller to mode normal"
 
-
         # mode detect udp attack
-        elif change_mode==mod.MODE_DETECT_UDP:
+        elif change_mode == mod.MODE_DETECT_UDP:
             print "detect UDP attack using KNN"
-            ent_tp_src = calculate_Entropy(new_flows.groupby(['port_src'])['total_pkt'].sum())
-            ent_tp_dst = calculate_Entropy(new_flows.groupby(['port_dst'])['total_pkt'].sum())
-            ent_packet_type = calculate_Entropy(new_flows.groupby(['proto'])['total_pkt'].sum())
+            ent_tp_src = calculate_entropy(new_flows.groupby(['port_src'])['total_pkt'].sum())
+            ent_tp_dst = calculate_entropy(new_flows.groupby(['port_dst'])['total_pkt'].sum())
+            ent_packet_type = calculate_entropy(new_flows.groupby(['proto'])['total_pkt'].sum())
 
             feature_vector = pd.Series([ent_ip_src, ent_tp_src, ent_tp_dst, ent_packet_type, total_packets],
                                        index=['ent_ip_src',
@@ -203,21 +206,20 @@ def status(event):
 
             print "Feature list \n ", feature_vector
             normalize(feature_vector)
-            tobeClassifed = feature_vector.values
-            change_mode = knn.calculate(tobeClassifed)
+            tobe_classifed = feature_vector.values
+            change_mode = knn.calculate(tobe_classifed)
             if change_mode == 1:
                 change_mode += 2
                 print " UDP Attack!!!\n UDP Attack!!!\n UDP Attack!!!"
             else:
                 print "Relax... It's a mistake"
 
-
         # detect ICMP attack using deep learning
-        elif change_mode==mod.MODE_DETECT_ICMP:
+        elif change_mode == mod.MODE_DETECT_ICMP:
             print "Detect ICMP attack using deep learning"
-            ent_tp_src = calculate_Entropy(new_flows.groupby(['port_src'])['total_pkt'].sum())
-            ent_tp_dst = calculate_Entropy(new_flows.groupby(['port_dst'])['total_pkt'].sum())
-            ent_packet_type = calculate_Entropy(new_flows.groupby(['proto'])['total_pkt'].sum())
+            ent_tp_src = calculate_entropy(new_flows.groupby(['port_src'])['total_pkt'].sum())
+            ent_tp_dst = calculate_entropy(new_flows.groupby(['port_dst'])['total_pkt'].sum())
+            ent_packet_type = calculate_entropy(new_flows.groupby(['proto'])['total_pkt'].sum())
 
             feature_vector = pd.Series([ent_ip_src, ent_tp_src, ent_tp_dst, ent_packet_type, total_packets],
                                        index=['ent_ip_src',
@@ -228,8 +230,8 @@ def status(event):
 
             print "Feature list \n ", feature_vector
             normalize_icmp(feature_vector)
-            tobeClassifed = np.reshape(feature_vector.values, (-1,1))
-            change_mode = Backprop.predict_realtime(tobeClassifed, parameters)
+            tobe_classifed = np.reshape(feature_vector.values, (-1, 1))
+            change_mode = Backprop.predict_realtime(tobe_classifed, parameters)
             if change_mode == 1:
                 change_mode += 1
                 msg = of.ofp_flow_mod()
@@ -257,7 +259,7 @@ def _tcp_status(event):
         table = []
         packet = event.parsed
         # tcp = packet.find('tcp')
-        if packet.find('tcp') and packet.find('tcp').SYN and packet.find('tcp').ACK == False:
+        if packet.find('tcp') and packet.find('tcp').SYN and packet.find('tcp').ACK is False:
             table.append([of.ofp_match.from_packet(packet).tp_src,
                           # of.ofp_match.from_packet(packet).tp_dst,
                           of.ofp_match.from_packet(packet).nw_src,
@@ -265,11 +267,9 @@ def _tcp_status(event):
                           ])
 
             if len(packets) == 0:
-                packets = pd.DataFrame(table,
-                                       columns=['source_port','IP_source'])
+                packets = pd.DataFrame(table, columns=['source_port', 'IP_source'])
             else:
-                new_packets = pd.DataFrame(table,
-                                           columns=['source_port', 'IP_source',])
+                new_packets = pd.DataFrame(table, columns=['source_port', 'IP_source'])
                 packets = packets.append(new_packets, ignore_index=True)
 
             ip = pd.read_csv('test.csv')
@@ -284,7 +284,7 @@ def _tcp_status(event):
             #     event.connection.send(packet_out)
         # elif count > 2:
         #     change_mode = 0
-        if t.time() - start >= y5:
+        if t.time() - start >= 5:
             count += 1
             # print len(ip)
             start = t.time()
@@ -347,27 +347,27 @@ def processing_statistic(pk):
 
 
 # main functiont to launch the module
-def launch ():
-  from pox.lib.recoco import Timer
-  global start, cnt, mean, std, max_feature, min_feature, max_feature_icmp, min_feature_icmp
-  global change_mode, tcp_activation
-  tcp_activation = 0
-  change_mode = 0
-  cnt=0
-  start = t.time()
-  # mean = pd.read_pickle("./somInput/meanStats")
-  # std = pd.read_pickle("./somInput/stdStats")
-  mean = pd.read_pickle("./somInput/maxFeature")
-  std = pd.read_pickle("./somInput/minFeature")
-  max_feature = pd.read_pickle("./somInput/max_feature.pickle")
-  min_feature = pd.read_pickle("./somInput/min_pickle.pickle")
-  max_feature_icmp = pd.read_pickle("./somInput/max_feature_icmp")
-  min_feature_icmp = pd.read_pickle("./somInput/min_feature_icmp")
-  print 'start=', start
-  # attach handsers to listners
-  core.openflow.addListenerByName("FlowStatsReceived", 
+def launch():
+    from pox.lib.recoco import Timer
+    global start, cnt, mean, std, max_feature, min_feature, max_feature_icmp, min_feature_icmp
+    global change_mode, tcp_activation
+    tcp_activation = 0
+    change_mode = 0
+    cnt = 0
+    start = t.time()
+    # mean = pd.read_pickle("./somInput/meanStats")
+    # std = pd.read_pickle("./somInput/stdStats")
+    mean = pd.read_pickle("./somInput/maxFeature")
+    std = pd.read_pickle("./somInput/minFeature")
+    max_feature = pd.read_pickle("./somInput/max_feature.pickle")
+    min_feature = pd.read_pickle("./somInput/min_pickle.pickle")
+    max_feature_icmp = pd.read_pickle("./somInput/max_feature_icmp")
+    min_feature_icmp = pd.read_pickle("./somInput/min_feature_icmp")
+    print 'start=', start
+    # attach handsers to listners
+    core.openflow.addListenerByName("FlowStatsReceived",
     _handle_flowstats_received)
-  core.openflow.addListenerByName("PacketIn",
+    core.openflow.addListenerByName("PacketIn",
                                   _tcp_status)
-  # timer set to execute every five seconds
-  Timer(5, _timer_func, recurring=True)
+    # timer set to execute every five seconds
+    Timer(5, _timer_func, recurring=True)
