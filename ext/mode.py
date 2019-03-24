@@ -1,0 +1,11 @@
+
+class mod():
+    MODE_NORMAL        = 0
+    MODE_CLASSIFIER    = 1
+    MODE_DETECT_ICMP   = 2
+    MODE_DETECT_UDP    = 3
+    MODE_DETECT_TCPSYN = 4
+    THRESHOLD_ICMP     = 5000
+    THRESHOLD_UDP      = 2000
+    THRESHOLD_TCP_SYN  = 150
+    PRIORITY           = 500
